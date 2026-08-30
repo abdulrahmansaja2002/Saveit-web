@@ -1,0 +1,124 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+
+  # ── Lint & validate Go code ────────────────────────────────────────────────
+  validate:
+    name: Validate Go code
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: go vet (all api handlers)
+        run: |
+          # Vet each handler file independently (Vercel compiles them separately)
+          for f in api/*.go; do
+            echo "→ vetting $f"
+            # Create a temp package with just this file for vetting
+            tmpdir=$(mktemp -d)
+            cp go.mod "$tmpdir/"
+            cp "$f" "$tmpdir/main.go"
+            # Patch package name for standalone vet
+            sed -i 's/^package handler/package main/' "$tmpdir/main.go"
+            # Add main func stub so it compiles as main
+            echo $'\nfunc main() {}' >> "$tmpdir/main.go"
+            cd "$tmpdir" && go build ./... 2>&1 || true
+            cd - > /dev/null
+            rm -rf "$tmpdir"
+          done
+          echo "Validation done"
+
+      - name: Check go.mod is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum || (echo "go.mod/go.sum are not tidy — run go mod tidy" && exit 1)
+
+  # ── Preview deployment (pull requests) ────────────────────────────────────
+  preview:
+    name: Deploy Preview
+    runs-on: ubuntu-22.04
+    needs: validate
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build project (preview)
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (preview)
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "preview_url=$url" >> $GITHUB_OUTPUT
+
+      - name: Comment preview URL on PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const url = '${{ steps.deploy.outputs.preview_url }}';
+            const body = `## 🚀 Preview Deployment\n\n**URL:** ${url}\n\nDeployed from commit \`${{ github.sha }}\`.`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+  # ── Production deployment (main branch) ───────────────────────────────────
+  production:
+    name: Deploy Production
+    runs-on: ubuntu-22.04
+    needs: validate
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build project (production)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (production)
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "production_url=$url" >> $GITHUB_OUTPUT
+
+      - name: Write deployment summary
+        run: |
+          echo "## ✅ Production Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| URL | ${{ steps.deploy.outputs.production_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY

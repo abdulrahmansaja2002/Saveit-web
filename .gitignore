@@ -1,0 +1,33 @@
+# Vercel
+.vercel/
+
+# Go build artifacts
+*.exe
+*.test
+*.prof
+/dist/
+
+# Environment files — NEVER commit secrets
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (Vercel CLI installs locally sometimes)
+node_modules/
+package-lock.json
+
+# Logs
+*.log
+
+.vercel
+.env*

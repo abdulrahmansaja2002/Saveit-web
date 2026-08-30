@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/**/*.go", "use": "@vercel/go" },
+    { "src": "public/**",   "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/resolve", "dest": "/api/resolve.go" },
+    { "src": "/api/proxy",   "dest": "/api/proxy.go"   },
+    { "src": "/api/health",  "dest": "/api/health.go"  },
+    { "src": "/(.*)",        "dest": "/public/$1"       }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin",  "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" },
+        { "key": "X-Content-Type-Options",       "value": "nosniff" },
+        { "key": "X-Robots-Tag",                 "value": "noindex" }
+      ]
+    },
+    {
+      "source": "/public/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
+  ],
+  "env": {
+    "COBALT_API": "https://api.cobalt.tools"
+  }
+}

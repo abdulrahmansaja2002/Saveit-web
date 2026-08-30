@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaveIt — Social Media Downloader</title>
+<meta name="description" content="Download videos and photos from YouTube, Instagram, TikTok, Twitter, Reddit and more. Free, fast, no signup.">
+<meta property="og:title" content="SaveIt — Social Media Downloader">
+<meta name="theme-color" content="#6C63FF">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0A0F;--bg2:#13131A;--card:#1C1C26;--surface:#252533;--border:#2E2E42;
+  --accent:#6C63FF;--accent-dim:rgba(108,99,255,.15);--accent-glow:rgba(108,99,255,.35);
+  --text:#F0F0F8;--text2:#9090B0;--text3:#55556A;
+  --success:#4ECDC4;--error:#FF6B6B;--warn:#FFB347;
+  --radius:16px;--radius-sm:10px;
+  --shadow:0 8px 32px rgba(0,0,0,.5);--trans:.2s cubic-bezier(.4,0,.2,1)
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+button{cursor:pointer;font-family:inherit;border:none;background:none}
+input,select{font-family:inherit}img{max-width:100%;display:block}
+::selection{background:var(--accent);color:#fff}
+
+/* Blobs */
+.blobs{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);animation:drift 14s ease-in-out infinite alternate}
+.b1{width:700px;height:700px;background:radial-gradient(circle,rgba(108,99,255,.18),transparent 70%);top:-250px;right:-180px;animation-delay:0s}
+.b2{width:550px;height:550px;background:radial-gradient(circle,rgba(78,205,196,.11),transparent 70%);bottom:-180px;left:-120px;animation-delay:-5s}
+.b3{width:420px;height:420px;background:radial-gradient(circle,rgba(255,107,107,.07),transparent 70%);top:45%;left:35%;animation-delay:-9s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(45px,35px) scale(1.1)}}
+
+/* Layout */
+.wrap{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:0 20px 80px}
+
+/* Nav */
+nav{display:flex;align-items:center;justify-content:space-between;padding:28px 0 0}
+.logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;color:var(--text)}
+.logo-icon{width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:var(--accent);border-radius:11px;font-size:17px;flex-shrink:0;box-shadow:0 4px 18px var(--accent-glow)}
+.nav-links{display:flex;gap:8px}
+.nav-link{padding:6px 14px;border-radius:8px;font-size:13px;color:var(--text2);border:1px solid var(--border);transition:var(--trans);background:var(--bg2)}
+.nav-link:hover{color:var(--text);border-color:var(--accent);text-decoration:none;background:var(--accent-dim)}
+
+/* Hero */
+.hero{text-align:center;padding:56px 0 44px}
+.hero h1{font-size:clamp(1.9rem,5.5vw,3.4rem);font-weight:800;line-height:1.12;letter-spacing:-.025em}
+.grad{background:linear-gradient(135deg,var(--accent) 0%,#a78bff 50%,var(--success) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{color:var(--text2);font-size:1rem;margin-top:16px}
+.platform-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:28px}
+.pill{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:var(--trans);border:1px solid transparent;letter-spacing:.03em;user-select:none}
+.pill:hover{transform:translateY(-2px);filter:brightness(1.25)}
+.p-yt{background:rgba(255,0,51,.1);color:#FF3355;border-color:rgba(255,0,51,.25)}
+.p-ig{background:rgba(225,48,108,.1);color:#E1306C;border-color:rgba(225,48,108,.25)}
+.p-tt{background:rgba(105,201,208,.1);color:#5BC8D0;border-color:rgba(105,201,208,.25)}
+.p-tw{background:rgba(29,161,242,.1);color:#1DA1F2;border-color:rgba(29,161,242,.25)}
+.p-fb{background:rgba(24,119,242,.1);color:#4A90E2;border-color:rgba(24,119,242,.25)}
+.p-rd{background:rgba(255,69,0,.1);color:#FF6633;border-color:rgba(255,69,0,.25)}
+.p-vm{background:rgba(26,183,234,.1);color:#1AB7EA;border-color:rgba(26,183,234,.25)}
+.p-sc{background:rgba(255,119,0,.1);color:#FF8800;border-color:rgba(255,119,0,.25)}
+
+/* Card */
+.card{background:rgba(28,28,38,.88);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow)}
+.card+.card{margin-top:14px}
+
+/* Input shell */
+.input-shell{display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:4px 6px 4px 14px;transition:var(--trans)}
+.input-shell:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.ptag{display:none;white-space:nowrap;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;letter-spacing:.05em;flex-shrink:0}
+.ptag.on{display:block}
+#url-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:14px;padding:11px 0;min-width:0}
+#url-input::placeholder{color:var(--text3)}
+.ibtn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:var(--text2);transition:var(--trans);flex-shrink:0;font-size:15px}
+.ibtn:hover{background:var(--border);color:var(--text)}
+.ibtn.hidden{display:none}
+
+/* Options */
+.opts{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+.og{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px}
+.olabel{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+select{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:9px 32px 9px 13px;font-size:13px;outline:none;cursor:pointer;transition:var(--trans);appearance:none;width:100%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239090B0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+
+/* Primary button */
+.btn-p{width:100%;padding:14px;margin-top:16px;border-radius:var(--radius-sm);background:var(--accent);color:#fff;font-size:15px;font-weight:700;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:10px;transition:var(--trans);position:relative;overflow:hidden;border:none}
+.btn-p:hover:not(:disabled){background:#7d75ff;box-shadow:0 4px 22px var(--accent-glow);transform:translateY(-1px)}
+.btn-p:active:not(:disabled){transform:translateY(0)}
+.btn-p:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-p.loading .btn-text{opacity:0}
+.btn-p.loading .spin{display:block}
+.spin{display:none;position:absolute;width:20px;height:20px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Utility buttons */
+.btn-s{padding:9px 18px;border-radius:8px;border:1.5px solid var(--border);color:var(--text2);font-size:13px;font-weight:600;transition:var(--trans);background:transparent;cursor:pointer}
+.btn-s:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.btn-g{padding:6px 14px;border-radius:8px;font-size:13px;color:var(--text2);transition:var(--trans);background:transparent;border:none;cursor:pointer}
+.btn-g:hover{background:var(--surface);color:var(--text)}
+.bsm{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;transition:var(--trans);border:none;cursor:pointer}
+.bsm-a{background:var(--accent);color:#fff}
+.bsm-a:hover{background:#7d75ff;box-shadow:0 2px 14px var(--accent-glow)}
+.bsm-o{border:1.5px solid var(--border);color:var(--text2);background:transparent}
+.bsm-o:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* Result card */
+#result-card{display:none}
+#result-card.on{display:block;animation:si .3s ease}
+#error-card{display:none}
+#error-card.on{display:block;animation:si .3s ease}
+@keyframes si{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+.r-plat{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:3px 9px;border-radius:6px;margin-bottom:8px}
+.r-title{font-size:14px;font-weight:600;line-height:1.4;color:var(--text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.r-meta{font-size:12px;color:var(--text3);margin-top:4px}
+.r-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:18px}
+
+/* Picker */
+.picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;margin-bottom:14px}
+.pi{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;background:var(--surface);cursor:pointer}
+.pi img{width:100%;height:100%;object-fit:cover}
+.pi-badge{position:absolute;top:5px;left:5px;background:rgba(0,0,0,.72);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.pi-ov{position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;transition:var(--trans);opacity:0}
+.pi:hover .pi-ov{background:rgba(108,99,255,.6);opacity:1}
+.pi-icon{width:42px;height:42px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;transform:scale(.8);transition:var(--trans)}
+.pi:hover .pi-icon{transform:scale(1)}
+
+/* Error */
+.err-inner{display:flex;gap:14px;align-items:flex-start}
+.err-icon{width:46px;height:46px;background:rgba(255,107,107,.14);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.err-ttl{font-size:14px;font-weight:700;color:var(--error);margin-bottom:6px}
+.err-msg{font-size:13px;color:var(--text2);margin-bottom:14px}
+
+/* How it works */
+.how{padding:52px 0 0;text-align:center}
+.how h2{font-size:1.1rem;font-weight:700;color:var(--text2);margin-bottom:28px;text-transform:uppercase;letter-spacing:.07em}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.step{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 18px;text-align:center}
+.snum{width:40px;height:40px;background:var(--accent-dim);border:1.5px solid var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--accent);margin:0 auto 14px}
+.step h3{font-size:14px;font-weight:700;margin-bottom:6px}
+.step p{font-size:13px;color:var(--text2);line-height:1.5}
+
+/* Platform support grid */
+.plat-sec{padding:46px 0 0}
+.sec-ttl{font-size:.85rem;font-weight:700;color:var(--text3);margin-bottom:16px;text-align:center;text-transform:uppercase;letter-spacing:.08em}
+.plat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.pc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer;transition:var(--trans)}
+.pc:hover{border-color:var(--accent);background:var(--accent-dim);transform:translateY(-2px)}
+.pdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* History */
+.hist-sec{padding:44px 0 0;display:none}
+.hist-sec.on{display:block}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sec-hdr h2{font-size:1rem;font-weight:700;color:var(--text2)}
+.hist-list{display:flex;flex-direction:column;gap:10px}
+.hi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px;display:flex;align-items:center;gap:13px;animation:si .25s ease}
+.hthumb{width:60px;height:44px;object-fit:cover;border-radius:8px;background:var(--surface);flex-shrink:0}
+.hthumb-ph{width:60px;height:44px;background:var(--surface);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.hinfo{flex:1;min-width:0}
+.htitle{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hmeta{font-size:11px;color:var(--text3);margin-top:3px}
+.hacts{display:flex;gap:6px;flex-shrink:0}
+
+/* Notice */
+.notice{background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.25);border-radius:var(--radius-sm);padding:11px 15px;font-size:12px;color:var(--warn);margin-top:12px;display:none;line-height:1.6}
+.notice.on{display:block}
+
+/* Footer */
+footer{text-align:center;padding:48px 0 0;color:var(--text3);font-size:13px;line-height:2.2}
+footer a{color:var(--text2)}footer a:hover{color:var(--accent)}
+
+/* Divider */
+.div{height:1px;background:var(--border);margin:32px 0}
+
+/* Toasts */
+.toasts{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:13px;color:var(--text);box-shadow:var(--shadow);animation:ti .25s ease;max-width:320px;display:flex;align-items:center;gap:10px}
+.toast.s{border-color:rgba(78,205,196,.4);background:rgba(78,205,196,.08)}
+.toast.e{border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.08)}
+.toast.w{border-color:rgba(255,179,71,.4);background:rgba(255,179,71,.08)}
+@keyframes ti{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes to{to{opacity:0;transform:translateX(20px)}}
+.toast.out{animation:to .2s ease forwards}
+
+/* Responsive */
+@media(max-width:640px){
+  .hero{padding:36px 0 28px}
+  .hero h1{font-size:1.85rem}
+  .steps{grid-template-columns:1fr}
+  .opts{flex-direction:column}
+  .toasts{left:16px;right:16px;bottom:16px}
+  .toast{max-width:100%}
+  .picker-grid{grid-template-columns:repeat(3,1fr)}
+  .nav-links{display:none}
+}
+@media(max-width:380px){
+  .platform-row{gap:6px}
+  .pill{font-size:10px;padding:4px 10px}
+}
+</style>
+</head>
+<body>
+
+<div class="blobs" aria-hidden="true">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+</div>
+
+<div class="wrap">
+
+  <nav>
+    <div class="logo">
+      <div class="logo-icon">⬇</div>
+      <span>SaveIt</span>
+    </div>
+    <div class="nav-links">
+      <a href="https://github.com" class="nav-link" id="gh-link" target="_blank" rel="noopener">GitHub ↗</a>
+      <a href="/api/health" class="nav-link" target="_blank" rel="noopener">API Status</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <h1>Download from<br><span class="grad">social media</span></h1>
+    <p class="hero-sub">YouTube · Instagram · TikTok · Twitter · Reddit and more — free &amp; fast</p>
+    <div class="platform-row">
+      <span class="pill p-yt" data-ex="https://www.youtube.com/watch?v=dQw4w9WgXcQ">▶ YouTube</span>
+      <span class="pill p-ig" data-ex="https://www.instagram.com/p/example/">◆ Instagram</span>
+      <span class="pill p-tt" data-ex="https://www.tiktok.com/@user/video/1">♪ TikTok</span>
+      <span class="pill p-tw" data-ex="https://x.com/user/status/1">𝕏 Twitter</span>
+      <span class="pill p-fb" data-ex="https://www.facebook.com/watch/?v=1">f Facebook</span>
+      <span class="pill p-rd" data-ex="https://reddit.com/r/all/comments/1">● Reddit</span>
+      <span class="pill p-vm" data-ex="https://vimeo.com/1234567">▶ Vimeo</span>
+      <span class="pill p-sc" data-ex="https://soundcloud.com/user/track">♫ SoundCloud</span>
+    </div>
+  </header>
+
+  <!-- Main downloader -->
+  <div class="card">
+    <div class="input-shell" id="input-shell">
+      <span class="ptag" id="ptag"></span>
+      <input type="url" id="url-input" placeholder="Paste a link here — YouTube, Instagram, TikTok…"
+             autocomplete="off" spellcheck="false" autocorrect="off" inputmode="url">
+      <button class="ibtn" id="paste-btn" title="Paste from clipboard">📋</button>
+      <button class="ibtn hidden" id="clear-btn" title="Clear">✕</button>
+    </div>
+
+    <div class="opts">
+      <div class="og">
+        <label class="olabel" for="quality">Quality</label>
+        <select id="quality">
+          <option value="max">✨ Best available</option>
+          <option value="2160">4K — 2160p</option>
+          <option value="1440">QHD — 1440p</option>
+          <option value="1080" selected>FHD — 1080p</option>
+          <option value="720">HD — 720p</option>
+          <option value="480">SD — 480p</option>
+          <option value="360">Low — 360p</option>
+        </select>
+      </div>
+      <div class="og">
+        <label class="olabel" for="mode">Download as</label>
+        <select id="mode">
+          <option value="auto">🎬 Video + Audio</option>
+          <option value="audio">🎵 Audio only (MP3)</option>
+          <option value="mute">🔇 Silent video</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-p" id="dl-btn" disabled>
+      <span class="btn-text">⬇ &nbsp;Get Download Link</span>
+      <div class="spin"></div>
+    </button>
+
+    <div class="notice" id="size-notice">
+      ⚠ <strong>Large file?</strong> If the download doesn't start, use the <em>Direct Link</em> button and then right-click → Save As.
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="card" id="result-card"></div>
+
+  <!-- Error -->
+  <div class="card" id="error-card">
+    <div class="err-inner">
+      <div class="err-icon">⚠</div>
+      <div>
+        <div class="err-ttl">Could not resolve link</div>
+        <p class="err-msg" id="err-msg"></p>
+        <button class="btn-s" onclick="resetResult()">← Try another link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <section class="how">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <h3>Paste a link</h3>
+        <p>Copy any URL from a supported social media app and paste it above</p>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <h3>Choose options</h3>
+        <p>Select video quality, or switch to audio-only or silent video mode</p>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <h3>Download</h3>
+        <p>Click Download — the file saves directly to your device</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Supported platforms -->
+  <section class="plat-sec">
+    <div class="sec-ttl">Supported Platforms</div>
+    <div class="plat-grid" id="plat-grid"></div>
+  </section>
+
+  <!-- History -->
+  <section class="hist-sec" id="hist-sec">
+    <div class="sec-hdr">
+      <h2>Recent Downloads</h2>
+      <button class="btn-g" id="clr-hist">Clear all</button>
+    </div>
+    <div class="hist-list" id="hist-list"></div>
+  </section>
+
+  <div class="div"></div>
+
+  <footer>
+    <p>Powered by <a href="https://cobalt.tools" target="_blank" rel="noopener">cobalt.tools</a> open-source extraction</p>
+    <p>For personal use only &nbsp;·&nbsp; Respect copyright &amp; platform terms of service</p>
+  </footer>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* ── Platform definitions ───────────────────────────────────────────────── */
+const PLATFORMS=[
+  {name:'YouTube',    re:/youtube\.com|youtu\.be/i,   color:'#FF0033',emoji:'▶'},
+  {name:'Instagram',  re:/instagram\.com/i,            color:'#E1306C',emoji:'◆'},
+  {name:'TikTok',     re:/tiktok\.com/i,               color:'#69C9D0',emoji:'♪'},
+  {name:'Twitter / X',re:/twitter\.com|x\.com/i,      color:'#1DA1F2',emoji:'𝕏'},
+  {name:'Facebook',   re:/facebook\.com|fb\.watch/i,   color:'#1877F2',emoji:'f'},
+  {name:'Reddit',     re:/reddit\.com/i,               color:'#FF4500',emoji:'●'},
+  {name:'Pinterest',  re:/pinterest\./i,               color:'#E60023',emoji:'P'},
+  {name:'Twitch',     re:/twitch\.tv/i,                color:'#9146FF',emoji:'T'},
+  {name:'Vimeo',      re:/vimeo\.com/i,                color:'#1AB7EA',emoji:'▶'},
+  {name:'SoundCloud', re:/soundcloud\.com/i,           color:'#FF7700',emoji:'♫'},
+  {name:'Dailymotion',re:/dailymotion\.com/i,          color:'#0066DC',emoji:'D'},
+  {name:'Bilibili',   re:/bilibili\.com/i,             color:'#00A1D6',emoji:'B'},
+];
+
+const EXAMPLES={
+  'YouTube':'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  'Instagram':'https://www.instagram.com/p/example/',
+  'TikTok':'https://www.tiktok.com/@user/video/1',
+  'Twitter / X':'https://x.com/user/status/1',
+  'Facebook':'https://www.facebook.com/watch/?v=1',
+  'Reddit':'https://reddit.com/r/all/comments/1',
+  'Pinterest':'https://www.pinterest.com/pin/1',
+  'Twitch':'https://www.twitch.tv/videos/1',
+  'Vimeo':'https://vimeo.com/1234567',
+  'SoundCloud':'https://soundcloud.com/user/track',
+  'Dailymotion':'https://www.dailymotion.com/video/x1',
+  'Bilibili':'https://www.bilibili.com/video/BV1',
+};
+
+/* ── DOM ────────────────────────────────────────────────────────────────── */
+const $=id=>document.getElementById(id);
+const urlInput=$('url-input'), pasteBtn=$('paste-btn'), clearBtn=$('clear-btn');
+const dlBtn=$('dl-btn'), ptag=$('ptag');
+const resultCard=$('result-card'), errCard=$('error-card'), errMsg=$('err-msg');
+const sizeNotice=$('size-notice');
+let loading=false;
+
+/* ── Init ───────────────────────────────────────────────────────────────── */
+function init(){
+  buildPlatGrid();
+  renderHistory();
+  bindEvents();
+  const qUrl=new URLSearchParams(location.search).get('url');
+  if(qUrl){urlInput.value=qUrl;onUrlChange();}
+}
+
+/* ── Events ─────────────────────────────────────────────────────────────── */
+function bindEvents(){
+  urlInput.addEventListener('input',onUrlChange);
+  urlInput.addEventListener('paste',()=>setTimeout(onUrlChange,0));
+  urlInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!dlBtn.disabled)go();});
+
+  pasteBtn.addEventListener('click',async()=>{
+    try{
+      const t=await navigator.clipboard.readText();
+      urlInput.value=t.trim();onUrlChange();toast('Pasted ✓','s');
+    }catch{toast('Paste manually with Ctrl+V / Cmd+V','w');}
+  });
+
+  clearBtn.addEventListener('click',()=>{
+    urlInput.value='';onUrlChange();resetResult();urlInput.focus();
+  });
+
+  dlBtn.addEventListener('click',go);
+  $('clr-hist').addEventListener('click',()=>{
+    localStorage.removeItem('si_hist');renderHistory();toast('History cleared');
+  });
+
+  document.querySelectorAll('[data-ex]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      urlInput.value=el.dataset.ex;onUrlChange();
+      urlInput.scrollIntoView({behavior:'smooth',block:'center'});
+      toast('Example URL filled','s');
+    });
+  });
+
+  // Drag-and-drop
+  document.addEventListener('dragover',e=>e.preventDefault());
+  document.addEventListener('drop',e=>{
+    e.preventDefault();
+    const t=e.dataTransfer.getData('text/plain')||e.dataTransfer.getData('text/uri-list');
+    if(t){urlInput.value=t.trim();onUrlChange();}
+  });
+}
+
+/* ── URL change ─────────────────────────────────────────────────────────── */
+function onUrlChange(){
+  const v=urlInput.value.trim();
+  clearBtn.classList.toggle('hidden',!v);
+  if(!v){ptag.className='ptag';dlBtn.disabled=true;return;}
+  const p=getPlatform(v);
+  if(p){
+    ptag.textContent=p.emoji+' '+p.name;
+    ptag.className='ptag on';
+    ptag.style.cssText=`background:${p.color}22;color:${p.color};border:1px solid ${p.color}44;`;
+  }else{ptag.className='ptag';}
+  dlBtn.disabled=false;
+}
+
+function getPlatform(url){return PLATFORMS.find(p=>p.re.test(url))||null;}
+
+/* ── Main flow ──────────────────────────────────────────────────────────── */
+async function go(){
+  if(loading)return;
+  const url=urlInput.value.trim();
+  if(!url)return;
+  setLoading(true);
+  resetResult();
+  try{
+    const res=await fetch('/api/resolve',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        url,
+        quality:$('quality').value,
+        audioOnly:$('mode').value==='audio',
+        muteVideo:$('mode').value==='mute',
+      }),
+    });
+    const data=await res.json();
+    if(!res.ok||data.error){showError(data.error||`Error ${res.status}`);return;}
+    renderResult({...data,origUrl:url});
+    saveHist({...data,origUrl:url});
+  }catch(e){
+    showError('Network error — check your connection and try again.');
+  }finally{setLoading(false);}
+}
+
+/* ── Render result ──────────────────────────────────────────────────────── */
+function renderResult(d){
+  const p=getPlatform(d.origUrl);
+  const color=p?.color||'#6C63FF';
+  if(d.status==='direct')renderDirect(d,color);
+  else if(d.status==='picker')renderPicker(d,color);
+  else{showError(d.error||'Unknown response status');return;}
+  resultCard.classList.add('on');
+  resultCard.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function renderDirect(d,color){
+  const eu=enc(d.url),ef=enc(d.filename||'download');
+  const isAudio=d.filename?.match(/\.(mp3|ogg|wav|opus)$/i);
+  const ext=(d.filename||'').split('.').pop().toUpperCase();
+  resultCard.innerHTML=`
+    <div style="margin-bottom:20px">
+      <span class="r-plat" style="background:${color}20;color:${color};border:1px solid ${color}40">${esc(d.platform)}</span>
+      <div class="r-title">${esc(d.filename||'Media file')}</div>
+      <div class="r-meta">${isAudio?'🎵 Audio':'🎬 Video'}${ext?' · '+ext:''} · Ready to download</div>
+    </div>
+    <div class="r-actions">
+      <button class="bsm bsm-a" onclick="startDl('${eu}','${ef}',this)">⬇ Download</button>
+      <a class="bsm bsm-o" href="${esc(d.url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;">Direct Link ↗</a>
+      <button class="bsm bsm-o" onclick="copyLink('${eu}')">Copy URL</button>
+    </div>
+    <div class="notice on" style="margin-top:12px">
+      💡 <strong>Download</strong> saves via proxy &nbsp;·&nbsp; <strong>Direct Link</strong> opens the raw file — right-click → Save As for large videos
+    </div>`;
+}
+
+function renderPicker(d,color){
+  const items=d.picker||[];
+  const grid=items.map((it,i)=>`
+    <div class="pi" onclick="startDl('${enc(it.url)}','item_${i+1}',this)">
+      ${it.thumb?`<img src="${esc(it.thumb)}" alt="Item ${i+1}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+                :`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px">${it.type==='video'?'🎬':'📷'}</div>`}
+      <span class="pi-badge">${it.type==='video'?'VID':'IMG'}</span>
+      <div class="pi-ov"><div class="pi-icon">⬇</div></div>
+    </div>`).join('');
+  resultCard.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span class="r-plat" style="background:${color}20;color:${color};border:1px solid ${color}40">${esc(d.platform)}</span>
+      <span style="font-size:13px;color:var(--text2)">${items.length} item${items.length!==1?'s':''} — click any to download</span>
+    </div>
+    <div class="picker-grid">${grid}</div>
+    ${d.audio?`<button class="bsm bsm-o" onclick="startDl('${enc(d.audio)}','audio_track.mp3',this)">🎵 Download Audio Track</button>`:''}`;
+}
+
+/* ── Download ───────────────────────────────────────────────────────────── */
+async function startDl(eu,ef,btn){
+  const url=dec(eu),filename=dec(ef),orig=btn?.innerHTML;
+  if(btn){btn.innerHTML='⏳ Starting…';btn.disabled=true;}
+  const proxyUrl=`/api/proxy?url=${eu}&filename=${ef}`;
+  try{
+    const a=document.createElement('a');
+    a.href=proxyUrl;a.download=filename;a.style.display='none';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    toast('Download started! Check your Downloads folder 📁','s');
+    sizeNotice.classList.add('on');
+  }catch{
+    window.open(url,'_blank','noopener');
+    toast('Opened in new tab — right-click → Save As','w');
+  }
+  if(btn){setTimeout(()=>{btn.innerHTML=orig;btn.disabled=false;},3000);}
+}
+
+function copyLink(eu){
+  const url=dec(eu);
+  navigator.clipboard.writeText(url)
+    .then(()=>toast('Link copied! ✓','s'))
+    .catch(()=>{
+      const ta=document.createElement('textarea');
+      ta.value=url;document.body.appendChild(ta);ta.select();
+      document.execCommand('copy');document.body.removeChild(ta);
+      toast('Copied!','s');
+    });
+}
+
+/* ── Error / reset ──────────────────────────────────────────────────────── */
+function showError(msg){errMsg.textContent=msg;errCard.classList.add('on');errCard.scrollIntoView({behavior:'smooth',block:'nearest'});}
+function resetResult(){resultCard.classList.remove('on');resultCard.innerHTML='';errCard.classList.remove('on');sizeNotice.classList.remove('on');}
+function setLoading(on){loading=on;dlBtn.disabled=on;dlBtn.classList.toggle('loading',on);}
+
+/* ── History ────────────────────────────────────────────────────────────── */
+const HK='si_hist',HM=20;
+function saveHist(d){
+  if(d.status!=='direct'&&d.status!=='picker')return;
+  const items=getHist();
+  items.unshift({id:Date.now(),origUrl:d.origUrl,platform:d.platform,filename:d.filename||(d.picker?.length?`${d.picker.length} items`:'media'),url:d.url||d.picker?.[0]?.url||'',thumb:d.picker?.[0]?.thumb||'',ts:Date.now()});
+  if(items.length>HM)items.pop();
+  localStorage.setItem(HK,JSON.stringify(items));
+  renderHistory();
+}
+function getHist(){try{return JSON.parse(localStorage.getItem(HK)||'[]');}catch{return[];}}
+function renderHistory(){
+  const items=getHist(),sec=$('hist-sec'),list=$('hist-list');
+  if(!items.length){sec.classList.remove('on');return;}
+  sec.classList.add('on');
+  list.innerHTML=items.map(it=>`
+    <div class="hi">
+      ${it.thumb?`<img class="hthumb" src="${esc(it.thumb)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+                :`<div class="hthumb-ph">${it.filename?.match(/mp3|ogg|wav/i)?'🎵':'🎬'}</div>`}
+      <div class="hinfo">
+        <div class="htitle">${esc(it.filename)}</div>
+        <div class="hmeta">${esc(it.platform)} · ${relTime(it.ts)}</div>
+      </div>
+      <div class="hacts">
+        ${it.url?`<button class="bsm bsm-a" onclick="startDl('${enc(it.url)}','${enc(it.filename||'download')}',this)" title="Download">⬇</button>`:''}
+        <button class="bsm bsm-o" onclick="fillUrl('${enc(it.origUrl)}')" title="Re-resolve">↺</button>
+      </div>
+    </div>`).join('');
+}
+function fillUrl(eu){urlInput.value=dec(eu);onUrlChange();window.scrollTo({top:0,behavior:'smooth'});}
+
+/* ── Platform grid ──────────────────────────────────────────────────────── */
+function buildPlatGrid(){
+  $('plat-grid').innerHTML=PLATFORMS.map(p=>`
+    <div class="pc" onclick="fillUrl('${enc(EXAMPLES[p.name]||'#')}')">
+      <span class="pdot" style="background:${p.color}"></span>
+      <span>${p.name}</span>
+    </div>`).join('');
+}
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  const icon=type==='s'?'✓':type==='e'?'✕':type==='w'?'⚠':'ℹ';
+  el.className=`toast${type?' '+type:''}`;
+  el.innerHTML=`<span>${icon}</span><span>${esc(msg)}</span>`;
+  $('toasts').appendChild(el);
+  setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),220);},4200);
+}
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+const enc=s=>encodeURIComponent(s||'');
+const dec=s=>decodeURIComponent(s||'');
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function relTime(ts){const d=Date.now()-ts;if(d<60000)return'just now';if(d<3600000)return~~(d/60000)+'m ago';if(d<86400000)return~~(d/3600000)+'h ago';return new Date(ts).toLocaleDateString();}
+
+init();
+</script>
+</body>
+</html>
