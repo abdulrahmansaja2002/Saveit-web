@@ -20,7 +20,7 @@ import (
 // Maximum bytes we'll proxy (48 MB — stays under Vercel Pro limit)
 const maxProxyBytes = 48 * 1024 * 1024
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	proxyCORS(w)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)

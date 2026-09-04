@@ -108,7 +108,7 @@ func detectPlatform(rawURL string) string {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func ResolveHandler(w http.ResponseWriter, r *http.Request) {
 	setCORS(w)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
